@@ -1,0 +1,5 @@
+DB_USER: ${ssm:mysql_db_username-${self:provider.stage}}
+DB_NAME: ${ssm:mysql_db_database_portal-${self:provider.stage}}
+DB_HOST: ${ssm:mysql_db_host-${self:provider.stage}}
+DB_PASSWORD: ${ssm:mysql_db_password-${self:provider.stage}}
+DB_PORT: ${ssm:mysql_db_port-${self:provider.stage}}

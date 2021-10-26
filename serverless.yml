@@ -1,0 +1,108 @@
+service: home-propositions-serverless
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  stage: ${opt:stage, 'local'}
+  region: ${opt:region, 'eu-west-1'}
+  timeout: 30
+  tracing:
+    apiGateway: true
+    lambda: true
+  apiGateway:
+    minimumCompressionSize: 0 # Compress response when larger than specified size in bytes (must be between 0 and 10485760)
+  vpc:
+    securityGroupIds:
+      - sg-0af9f75cccde7cf94
+    subnetIds:
+      - subnet-0c5ec7c7cc1d798f8
+      - subnet-0b93217c8b69f2203
+      - subnet-0972035f076ce0c93
+  iamRoleStatements:
+    - Effect: 'Allow'
+      Action:
+        - 'sts:AssumeRole'
+      Resource: '*'
+    - Effect: 'Allow'
+      Action:
+        - 'xray:*'
+      Resource: '*'
+  environment: ${file(./environment-${self:provider.stage}.yml), file(./environment-ssm.yml)}
+
+plugins:
+  - serverless-offline
+  - serverless-prune-plugin
+  - serverless-webpack
+
+custom:
+  serverless-offline:
+    useChildProcesses: true
+  prune:
+    automatic: true
+    number: 3
+  webpack:
+    webpackConfig: 'webpack.config.js'
+    packager: 'npm'
+    includeModules: true
+
+package:
+  individually: true
+  exclude:
+    - .git/**
+    - tmp/**
+
+functions:
+  getProperties:
+    handler: src/functions/get-properties.handler
+    events:
+      - http:
+          path: properties
+          method: get
+          cors: true
+  createProperty:
+    handler: src/functions/create-property.handler
+    events:
+      - http:
+          path: properties
+          method: post
+          cors: true
+  updateProperty:
+    handler: src/functions/update-property.handler
+    events:
+      - http:
+          path: properties/{propertyId}
+          method: put
+          cors: true
+          request:
+            parameters:
+              paths:
+                propertyId: true
+  deleteProperty:
+    handler: src/functions/delete-property.handler
+    events:
+      - http:
+          path: properties/{propertyId}
+          method: delete
+          cors: true
+          request:
+            parameters:
+              paths:
+                propertyId: true
+
+resources:
+  Resources:
+    AWSLambdaVPCAccessExecutionRole:
+      Type: AWS::IAM::ManagedPolicy
+      Properties:
+        Description: Lambda policy for vpc execution.
+        Roles:
+          - { 'Ref': 'IamRoleLambdaExecution' }
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - ec2:CreateNetworkInterface
+                - ec2:DescribeNetworkInterfaces
+                - ec2:DeleteNetworkInterface
+              Resource: '*'
